@@ -55,6 +55,11 @@ else
   DEV_IMG ?= ttl.sh/medik8s-$(OPERATOR_NAME)-$(shell echo $$USER | head -c 8):$(TTL_SH_TTL)
 endif
 
+# Image platform for container builds. Defaults to linux/amd64 
+# Override via env/make: DEV_PLATFORM=linux/arm64
+DEV_PLATFORM ?= linux/amd64
+BUILD_PLATFORM_FLAG := $(if $(DEV_PLATFORM),--platform $(DEV_PLATFORM),)
+
 # Detect kubectl or oc
 KUBECTL ?= $(shell \
   if command -v kubectl >/dev/null 2>&1; then echo kubectl; \
@@ -128,13 +133,14 @@ ifeq ($(DEV_REGISTRY),local)
 	done; \
 	restore() { for f in $$patched; do sed -i 's/imagePullPolicy: IfNotPresent/imagePullPolicy: Always/' "$$f"; done; }; \
 	trap restore EXIT; \
-	$(CONTAINER_TOOL) build -t $(DEV_IMG) . && \
+	$(CONTAINER_TOOL) build $(BUILD_PLATFORM_FLAG) -t $(DEV_IMG) . && \
 	$(CONTAINER_TOOL) save -o /tmp/dev-image-$(OPERATOR_NAME).tar $(DEV_IMG) && \
 	KIND_EXPERIMENTAL_PROVIDER=$(if $(filter podman,$(CONTAINER_TOOL)),podman,docker) \
 		kind load image-archive /tmp/dev-image-$(OPERATOR_NAME).tar --name $(MEDIK8S_CLUSTER_NAME) && \
 	rm -f /tmp/dev-image-$(OPERATOR_NAME).tar
 else
-	$(CONTAINER_TOOL) build -t $(DEV_IMG) .
+	@if [ -n "$(DEV_PLATFORM)" ]; then echo "  Building for platform $(DEV_PLATFORM)"; fi
+	$(CONTAINER_TOOL) build $(BUILD_PLATFORM_FLAG) -t $(DEV_IMG) .
 	$(CONTAINER_TOOL) push $(DEV_IMG)
 	@echo ""
 	@echo "  Image pushed to $(DEV_IMG)"
@@ -352,6 +358,7 @@ dev-help: ## Show dev environment help
 	@echo "Build & Deploy:"
 	@echo "  make dev-build              Build image and load into Kind"
 	@echo "  make dev-deploy             Build + install CRDs + deploy operator"
+	@echo "                              (default: --platform linux/amd64; override with DEV_PLATFORM=)"
 	@echo "  make dev-redeploy           Rebuild and restart (fast iteration)"
 	@echo "  make dev-undeploy           Remove operator from cluster"
 	@echo "  make dev-bundle-run         Deploy via OLM bundle (requires operator-sdk)"
