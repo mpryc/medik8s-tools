@@ -15,12 +15,12 @@ detect_kubectl() {
     fi
 }
 
-# Detect container tool (docker preferred, podman fallback)
+# Detect container tool (podman preferred, docker fallback)
 detect_container_tool() {
-    if command -v docker &>/dev/null; then
-        echo docker
-    elif command -v podman &>/dev/null; then
+    if command -v podman &>/dev/null; then
         echo podman
+    elif command -v docker &>/dev/null; then
+        echo docker
     else
         echo "Error: docker or podman is required but neither is installed." >&2
         exit 1

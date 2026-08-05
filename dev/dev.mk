@@ -17,8 +17,8 @@ DEV_DIR := $(TOOLS_DIR)/dev
 # regardless of what the operator's Makefile sets.
 # Must be defined before DEV_CLUSTER_TYPE which uses it for KIND_EXPERIMENTAL_PROVIDER.
 override CONTAINER_TOOL := $(shell \
-  if command -v docker >/dev/null 2>&1; then echo docker; \
-  elif command -v podman >/dev/null 2>&1; then echo podman; \
+  if command -v podman >/dev/null 2>&1; then echo podman; \
+  elif command -v docker >/dev/null 2>&1; then echo docker; \
   else echo ""; \
   fi \
 )
