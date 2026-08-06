@@ -121,12 +121,12 @@ ifeq ($(DEV_REGISTRY),local)
 	@patched=""; \
 	for f in $$(find install/ -name '*.yaml' 2>/dev/null); do \
 		if grep -q 'imagePullPolicy: Always' "$$f"; then \
-			sed -i 's/imagePullPolicy: Always/imagePullPolicy: IfNotPresent/' "$$f"; \
+			sed -i.bak 's/imagePullPolicy: Always/imagePullPolicy: IfNotPresent/' "$$f" && rm -f "$$f.bak"; \
 			patched="$$patched $$f"; \
 			echo "  Patched $$f imagePullPolicy for dev build."; \
 		fi; \
 	done; \
-	restore() { for f in $$patched; do sed -i 's/imagePullPolicy: IfNotPresent/imagePullPolicy: Always/' "$$f"; done; }; \
+	restore() { for f in $$patched; do sed -i.bak 's/imagePullPolicy: IfNotPresent/imagePullPolicy: Always/' "$$f" && rm -f "$$f.bak"; done; }; \
 	trap restore EXIT; \
 	$(CONTAINER_TOOL) build -t $(DEV_IMG) . && \
 	$(CONTAINER_TOOL) save -o /tmp/dev-image-$(OPERATOR_NAME).tar $(DEV_IMG) && \
