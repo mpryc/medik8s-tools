@@ -41,7 +41,10 @@ get_worker_nodes() {
     echo "$nodes"
 }
 
-mapfile -t WORKERS < <(get_worker_nodes)
+WORKERS=()
+while IFS= read -r line; do
+    [ -n "$line" ] && WORKERS+=("$line")
+done <<< "$(get_worker_nodes)"
 if [ ${#WORKERS[@]} -lt 2 ]; then
     echo "Error: need at least 2 worker nodes. Found: ${#WORKERS[@]}"
     exit 1

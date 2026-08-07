@@ -17,8 +17,8 @@ DEV_DIR := $(TOOLS_DIR)/dev
 # regardless of what the operator's Makefile sets.
 # Must be defined before DEV_CLUSTER_TYPE which uses it for KIND_EXPERIMENTAL_PROVIDER.
 override CONTAINER_TOOL := $(shell \
-  if command -v docker >/dev/null 2>&1; then echo docker; \
-  elif command -v podman >/dev/null 2>&1; then echo podman; \
+  if command -v podman >/dev/null 2>&1; then echo podman; \
+  elif command -v docker >/dev/null 2>&1; then echo docker; \
   else echo ""; \
   fi \
 )
@@ -121,12 +121,12 @@ ifeq ($(DEV_REGISTRY),local)
 	@patched=""; \
 	for f in $$(find install/ -name '*.yaml' 2>/dev/null); do \
 		if grep -q 'imagePullPolicy: Always' "$$f"; then \
-			sed -i 's/imagePullPolicy: Always/imagePullPolicy: IfNotPresent/' "$$f"; \
+			sed -i.bak 's/imagePullPolicy: Always/imagePullPolicy: IfNotPresent/' "$$f" && rm -f "$$f.bak"; \
 			patched="$$patched $$f"; \
 			echo "  Patched $$f imagePullPolicy for dev build."; \
 		fi; \
 	done; \
-	restore() { for f in $$patched; do sed -i 's/imagePullPolicy: IfNotPresent/imagePullPolicy: Always/' "$$f"; done; }; \
+	restore() { for f in $$patched; do sed -i.bak 's/imagePullPolicy: IfNotPresent/imagePullPolicy: Always/' "$$f" && rm -f "$$f.bak"; done; }; \
 	trap restore EXIT; \
 	$(CONTAINER_TOOL) build -t $(DEV_IMG) . && \
 	$(CONTAINER_TOOL) save -o /tmp/dev-image-$(OPERATOR_NAME).tar $(DEV_IMG) && \
