@@ -26,6 +26,12 @@ ifeq ($(CONTAINER_TOOL),)
   $(error No container tool found. Please install docker or podman.)
 endif
 
+# Detect kubectl or oc 
+KUBECTL ?= $(shell command -v kubectl 2>/dev/null || command -v oc 2>/dev/null)
+ifeq ($(KUBECTL),)
+  $(error No kubectl or oc found. Please install kubectl or oc.)
+endif
+
 # Detect cluster type: "kind" if a Kind cluster exists, "external" otherwise.
 # Uses CONTAINER_TOOL to set KIND_EXPERIMENTAL_PROVIDER (needed for podman).
 # When SKIP_KIND=true, force external mode (the user explicitly opted out of Kind).
@@ -55,21 +61,13 @@ else
   DEV_IMG ?= ttl.sh/medik8s-$(OPERATOR_NAME)-$(shell echo $$USER | head -c 8):$(TTL_SH_TTL)
 endif
 
-# Image platform for container builds. Defaults to linux/amd64 
+# Image platform for container builds. Auto-detected from the first cluster node
 # Override via env/make: DEV_PLATFORM=linux/arm64
-DEV_PLATFORM ?= linux/amd64
+DEV_PLATFORM ?= $(shell \
+	if [ -n "$(KUBECTL)" ]; then \
+		$(KUBECTL) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}/{.items[0].status.nodeInfo.architecture}' 2>/dev/null; \
+	fi)
 BUILD_PLATFORM_FLAG := $(if $(DEV_PLATFORM),--platform $(DEV_PLATFORM),)
-
-# Detect kubectl or oc
-KUBECTL ?= $(shell \
-  if command -v kubectl >/dev/null 2>&1; then echo kubectl; \
-  elif command -v oc >/dev/null 2>&1; then echo oc; \
-  else echo ""; \
-  fi \
-)
-ifeq ($(KUBECTL),)
-  $(error No kubectl or oc found. Please install kubectl or oc.)
-endif
 
 # Verify Go is available
 ifeq ($(shell command -v go 2>/dev/null),)
@@ -358,7 +356,7 @@ dev-help: ## Show dev environment help
 	@echo "Build & Deploy:"
 	@echo "  make dev-build              Build image and load into Kind"
 	@echo "  make dev-deploy             Build + install CRDs + deploy operator"
-	@echo "                              (default: --platform linux/amd64; override with DEV_PLATFORM=)"
+	@echo "                              (auto-detects platform from cluster; override with DEV_PLATFORM=)"
 	@echo "  make dev-redeploy           Rebuild and restart (fast iteration)"
 	@echo "  make dev-undeploy           Remove operator from cluster"
 	@echo "  make dev-bundle-run         Deploy via OLM bundle (requires operator-sdk)"
