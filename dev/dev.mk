@@ -26,6 +26,12 @@ ifeq ($(CONTAINER_TOOL),)
   $(error No container tool found. Please install docker or podman.)
 endif
 
+# Detect kubectl or oc 
+KUBECTL ?= $(shell command -v kubectl 2>/dev/null || command -v oc 2>/dev/null)
+ifeq ($(KUBECTL),)
+  $(error No kubectl or oc found. Please install kubectl or oc.)
+endif
+
 # Detect cluster type: "kind" if a Kind cluster exists, "external" otherwise.
 # Uses CONTAINER_TOOL to set KIND_EXPERIMENTAL_PROVIDER (needed for podman).
 # When SKIP_KIND=true, force external mode (the user explicitly opted out of Kind).
@@ -55,16 +61,13 @@ else
   DEV_IMG ?= ttl.sh/medik8s-$(OPERATOR_NAME)-$(shell echo $$USER | head -c 8):$(TTL_SH_TTL)
 endif
 
-# Detect kubectl or oc
-KUBECTL ?= $(shell \
-  if command -v kubectl >/dev/null 2>&1; then echo kubectl; \
-  elif command -v oc >/dev/null 2>&1; then echo oc; \
-  else echo ""; \
-  fi \
-)
-ifeq ($(KUBECTL),)
-  $(error No kubectl or oc found. Please install kubectl or oc.)
-endif
+# Image platform for container builds. Auto-detected from the first cluster node
+# Override via env/make: DEV_PLATFORM=linux/arm64
+DEV_PLATFORM ?= $(shell \
+	if [ -n "$(KUBECTL)" ]; then \
+		$(KUBECTL) get node -o jsonpath='{.items[0].status.nodeInfo.operatingSystem}/{.items[0].status.nodeInfo.architecture}' 2>/dev/null; \
+	fi)
+BUILD_PLATFORM_FLAG := $(if $(DEV_PLATFORM),--platform $(DEV_PLATFORM),)
 
 # Verify Go is available
 ifeq ($(shell command -v go 2>/dev/null),)
@@ -128,13 +131,14 @@ ifeq ($(DEV_REGISTRY),local)
 	done; \
 	restore() { for f in $$patched; do sed -i.bak 's/imagePullPolicy: IfNotPresent/imagePullPolicy: Always/' "$$f" && rm -f "$$f.bak"; done; }; \
 	trap restore EXIT; \
-	$(CONTAINER_TOOL) build -t $(DEV_IMG) . && \
+	$(CONTAINER_TOOL) build $(BUILD_PLATFORM_FLAG) -t $(DEV_IMG) . && \
 	$(CONTAINER_TOOL) save -o /tmp/dev-image-$(OPERATOR_NAME).tar $(DEV_IMG) && \
 	KIND_EXPERIMENTAL_PROVIDER=$(if $(filter podman,$(CONTAINER_TOOL)),podman,docker) \
 		kind load image-archive /tmp/dev-image-$(OPERATOR_NAME).tar --name $(MEDIK8S_CLUSTER_NAME) && \
 	rm -f /tmp/dev-image-$(OPERATOR_NAME).tar
 else
-	$(CONTAINER_TOOL) build -t $(DEV_IMG) .
+	@if [ -n "$(DEV_PLATFORM)" ]; then echo "  Building for platform $(DEV_PLATFORM)"; fi
+	$(CONTAINER_TOOL) build $(BUILD_PLATFORM_FLAG) -t $(DEV_IMG) .
 	$(CONTAINER_TOOL) push $(DEV_IMG)
 	@echo ""
 	@echo "  Image pushed to $(DEV_IMG)"
@@ -352,6 +356,7 @@ dev-help: ## Show dev environment help
 	@echo "Build & Deploy:"
 	@echo "  make dev-build              Build image and load into Kind"
 	@echo "  make dev-deploy             Build + install CRDs + deploy operator"
+	@echo "                              (auto-detects platform from cluster; override with DEV_PLATFORM=)"
 	@echo "  make dev-redeploy           Rebuild and restart (fast iteration)"
 	@echo "  make dev-undeploy           Remove operator from cluster"
 	@echo "  make dev-bundle-run         Deploy via OLM bundle (requires operator-sdk)"
