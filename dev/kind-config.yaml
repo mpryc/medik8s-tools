@@ -1,6 +1,7 @@
 # Kind cluster configuration for medik8s development
-# Creates 1 control-plane + 3 worker nodes.
+# Creates 1 control-plane + 2 worker nodes (default).
 # SNR requires 2+ workers for peer health checks.
+# Use KIND_EXTRA_WORKERS=true for 3 workers (needed for storm simulation).
 # Single CP is sufficient for development; multi-CP etcd quorum testing
 # requires a real OpenShift cluster.
 kind: Cluster
@@ -10,7 +11,6 @@ networking:
   serviceSubnet: "10.96.0.0/16"
 nodes:
   - role: control-plane
-  - role: worker
   - role: worker
   - role: worker
 containerdConfigPatches:

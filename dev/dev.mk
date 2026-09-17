@@ -125,8 +125,8 @@ dev-cluster-info: ## Show cluster version, connection info, and node status
 	@$(KUBECTL) get nodes -o=wide
 
 .PHONY: dev-setup
-dev-setup: ## Create Kind cluster and configure dependencies (use SKIP_KIND=true for existing clusters, KIND_HA=true for 3 CP)
-	@$(DEV_DIR)/setup.sh $(if $(filter true,$(SKIP_KIND)),--skip-kind) $(if $(filter true,$(KIND_HA)),--ha)
+dev-setup: ## Create Kind cluster and configure dependencies (SKIP_KIND=true for existing clusters, KIND_HA=true for 3 CP, KIND_EXTRA_WORKERS=true for 3 workers)
+	@$(DEV_DIR)/setup.sh $(if $(filter true,$(SKIP_KIND)),--skip-kind) $(if $(filter true,$(KIND_HA)),--ha) $(if $(filter true,$(KIND_EXTRA_WORKERS)),--extra-workers)
 
 .PHONY: dev-teardown
 dev-teardown: ## Destroy the Kind dev cluster
@@ -473,7 +473,7 @@ dev-simulate-failure: ## Stop kubelet on a worker to trigger remediation (use SC
 	@$(DEV_DIR)/simulate-failure.sh $(or $(SCENARIO),kubelet-stop)
 
 .PHONY: dev-simulate-storm
-dev-simulate-storm: ## Simulate storm: stop kubelet on 2 workers
+dev-simulate-storm: ## Simulate storm: stop kubelet on 2 workers (use KIND_EXTRA_WORKERS=true at setup for best results)
 	@$(DEV_DIR)/simulate-failure.sh storm
 
 .PHONY: dev-simulate-network
@@ -520,7 +520,7 @@ dev-help: ## Show dev environment help
 	@echo "Medik8s Development Environment"
 	@echo ""
 	@echo "Lifecycle:"
-	@echo "  make dev-setup              Create Kind cluster (1 CP + 3 workers) + local registry"
+	@echo "  make dev-setup              Create Kind cluster (1 CP + 2 workers) + local registry"
 	@echo "  make dev-teardown           Destroy cluster"
 	@echo ""
 	@echo "Build & Deploy:"
@@ -561,6 +561,7 @@ dev-help: ## Show dev environment help
 	@echo "  SKIP_KIND=true              Use existing cluster instead of creating Kind"
 	@echo "  SKIP_REGISTRY=true          Skip local registry creation in dev-setup"
 	@echo "  KIND_HA=true                HA config (3 CP + 3 workers)"
+	@echo "  KIND_EXTRA_WORKERS=true     Add a 3rd worker (needed for storm simulation)"
 	@echo "  MEDIK8S_CLUSTER_NAME=name   Kind cluster name (default: medik8s-dev)"
 	@echo "  MEDIK8S_REGISTRY_NAME=name  Registry container name (default: kind-registry)"
 	@echo "  MEDIK8S_REGISTRY_PORT=port  Registry port (default: 5000)"

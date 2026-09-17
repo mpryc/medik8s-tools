@@ -150,7 +150,7 @@ All `dev-*` targets are now available.
 
 ## What It Creates
 
-- **1 control-plane + 3 worker nodes** (SNR needs 2+ workers for peer health; use `KIND_HA=true` for 3 CP + 3 workers)
+- **1 control-plane + 2 worker nodes** (SNR needs 2+ workers for peer health; use `KIND_EXTRA_WORKERS=true` for 3 workers, `KIND_HA=true` for 3 CP + 3 workers)
 - **Worker labels** (`node-role.kubernetes.io/worker`)
 - **softdog** kernel module on workers (for SNR/SBR watchdog testing)
 - **Namespaces**: `medik8s-system` (privileged PSA) and `medik8s-leases` for shared resources
@@ -168,7 +168,7 @@ Re-running `make dev-setup` on an existing cluster is safe — it re-applies con
 |---------|-------------|
 | `make dev-simulate-failure` | Stop kubelet on a worker → node goes NotReady → NHC creates remediation CR |
 | `make dev-simulate-network` | Block API server from a worker → tests SNR peer health decisions |
-| `make dev-simulate-storm` | Stop kubelet on 2/3 workers → NHC detects storm, pauses remediation |
+| `make dev-simulate-storm` | Stop kubelet on 2 workers → NHC detects storm, pauses remediation (best with `KIND_EXTRA_WORKERS=true`) |
 | `make dev-recover` | Restart kubelet, restore network, clean up CRs |
 
 ### Kind vs OpenShift recovery
@@ -197,7 +197,7 @@ kubectl get selfnoderemediation -A -w    # watch SNR CR + automatic reboot
 
 | Target | Description |
 |--------|-------------|
-| `dev-setup` | Create Kind cluster with all dependencies (`SKIP_KIND=true` for external cluster, `KIND_HA=true` for 3 CP + 3 workers) |
+| `dev-setup` | Create Kind cluster with all dependencies (`SKIP_KIND=true` for external cluster, `KIND_HA=true` for 3 CP + 3 workers, `KIND_EXTRA_WORKERS=true` for 3 workers) |
 | `dev-teardown` | Destroy Kind cluster |
 | `dev-build` | Build operator image and load into Kind (or push to ttl.sh) |
 | `dev-deploy` | Build + install CRDs + deploy + configure cert-manager |
@@ -255,6 +255,7 @@ commands to run instead of executing them directly (safety first). Set
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KIND_HA` | `false` | Set to `true` for HA cluster (3 CP + 3 workers, for SNR CP testing) |
+| `KIND_EXTRA_WORKERS` | `false` | Set to `true` to add a 3rd worker node (needed for storm simulation) |
 | `SKIP_KIND` | `false` | Set to `true` to skip Kind creation (external cluster) |
 | `DEV_REGISTRY` | `local` (Kind) / `ttl.sh` (external) | Image delivery: `local` or `ttl.sh` |
 | `DEV_IMG` | auto-generated | Override to use a custom image name |

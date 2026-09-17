@@ -229,7 +229,8 @@ case "$SCENARIO" in
 
     storm)
         echo "=== Simulating storm: stopping kubelet on ${WORKERS[0]} and ${WORKERS[1]} ==="
-        echo "With 3 workers and minHealthy=51%, NHC should NOT remediate (only 33% healthy)."
+        HEALTHY_PCT=$(( (${#WORKERS[@]} - 2) * 100 / ${#WORKERS[@]} ))
+        echo "With ${#WORKERS[@]} workers and minHealthy=51%, NHC should NOT remediate (only ${HEALTHY_PCT}% healthy)."
         ${CONTAINER_TOOL} exec "${WORKERS[0]}" systemctl stop kubelet &
         ${CONTAINER_TOOL} exec "${WORKERS[1]}" systemctl stop kubelet &
         wait

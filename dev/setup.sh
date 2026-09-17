@@ -1,6 +1,6 @@
 #!/bin/bash
 # Medik8s development environment setup
-# Creates a Kind cluster with 1 CP + 3 worker nodes, installs OLM,
+# Creates a Kind cluster with 1 CP + 2 worker nodes (default), installs OLM,
 # and prepares the namespace for operator deployment.
 #
 # Usage: ./setup.sh [--skip-olm] [--skip-registry] [--name <cluster-name>]
@@ -22,6 +22,7 @@ SKIP_REGISTRY="${SKIP_REGISTRY:-false}"
 REG_NAME="${MEDIK8S_REGISTRY_NAME:-kind-registry}"
 REG_PORT="${MEDIK8S_REGISTRY_PORT:-5000}"
 KIND_HA="${KIND_HA:-false}"
+KIND_EXTRA_WORKERS="${KIND_EXTRA_WORKERS:-false}"
 KIND_CONFIG="${SCRIPT_DIR}/kind-config.yaml"
 
 # Parse arguments
@@ -47,6 +48,10 @@ while [[ $# -gt 0 ]]; do
             KIND_HA=true
             shift
             ;;
+        --extra-workers)
+            KIND_EXTRA_WORKERS=true
+            shift
+            ;;
         --name)
             if [[ $# -lt 2 ]]; then
                 echo "Error: --name requires a cluster name argument."
@@ -56,7 +61,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -h|--help)
-            echo "Usage: $0 [--skip-kind] [--skip-olm] [--skip-inotify-check] [--ha] [--name <cluster-name>]"
+            echo "Usage: $0 [--skip-kind] [--skip-olm] [--skip-inotify-check] [--ha] [--extra-workers] [--name <cluster-name>]"
             echo ""
             echo "Options:"
             echo "  --skip-kind           Skip Kind cluster creation (use existing cluster)"
@@ -64,6 +69,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --skip-registry       Skip local registry creation"
             echo "  --skip-inotify-check  Skip inotify limits check"
             echo "  --ha                  Use HA config (3 CP + 3 workers, for SNR CP testing)"
+            echo "  --extra-workers       Add a 3rd worker node (needed for storm simulation)"
             echo "  --name                Kind cluster name (default: medik8s-dev)"
             echo ""
             echo "Environment variables:"
@@ -77,6 +83,7 @@ while [[ $# -gt 0 ]]; do
             echo "  SKIP_KIND                 Set to 'true' to skip Kind cluster creation"
             echo "  SKIP_REGISTRY             Set to 'true' to skip local registry creation"
             echo "  KIND_HA                   Set to 'true' for HA config (3 CP + 3 workers)"
+            echo "  KIND_EXTRA_WORKERS        Set to 'true' to add a 3rd worker node"
             exit 0
             ;;
         *)
@@ -88,6 +95,13 @@ done
 
 if [ "${KIND_HA}" = true ]; then
     KIND_CONFIG="${SCRIPT_DIR}/kind-config-ha.yaml"
+elif [ "${KIND_EXTRA_WORKERS}" = true ]; then
+    # Create a temporary config with an extra worker node appended
+    KIND_CONFIG_TMP=$(mktemp /tmp/kind-config-XXXXXX.yaml)
+    # Insert extra worker before containerdConfigPatches
+    sed '/^containerdConfigPatches:/i\  - role: worker' "${SCRIPT_DIR}/kind-config.yaml" > "${KIND_CONFIG_TMP}"
+    KIND_CONFIG="${KIND_CONFIG_TMP}"
+    trap 'rm -f "${KIND_CONFIG_TMP}"' EXIT
 fi
 
 # Check prerequisites
