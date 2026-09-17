@@ -216,8 +216,10 @@ dev-deploy: dev-build install $(if $(ENVSUBST),envsubst) ## Build, load image, i
 		fi; \
 		if [ -n "$$DEPLOY" ]; then \
 			echo "=== Waiting for operator deployment to be ready ==="; \
-			$(KUBECTL) wait --for=condition=Available deployment/$$DEPLOY -n $$NS --timeout=120s || \
+			$(KUBECTL) wait --for=condition=Available deployment/$$DEPLOY -n $$NS --timeout=300s || \
 				{ echo "Error: deployment $$DEPLOY is not ready. Check logs with 'make dev-logs'."; exit 1; }; \
+			echo "=== Waiting 15s for operator webhooks to stabilize ==="; \
+			sleep 15; \
 		fi; \
 	else \
 		echo "  Warning: could not detect operator namespace. Skipping cert-manager setup."; \
@@ -300,7 +302,7 @@ dev-redeploy: dev-build ## Rebuild image and restart operator pods (deletes pods
 			DEPLOY=$$($(KUBECTL) get deployment -n $$NS -l app.kubernetes.io/component=controller-manager --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null | head -1); \
 		fi; \
 		if [ -n "$$DEPLOY" ]; then \
-			$(KUBECTL) wait --for=condition=Available deployment/$$DEPLOY -n $$NS --timeout=120s || \
+			$(KUBECTL) wait --for=condition=Available deployment/$$DEPLOY -n $$NS --timeout=300s || \
 				echo "Warning: deployment is not ready. Check logs with 'make dev-logs'."; \
 		fi; \
 	else \

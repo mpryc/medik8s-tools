@@ -392,13 +392,20 @@ if ${KUBECTL} get crd certificates.cert-manager.io &>/dev/null; then
 else
     ${KUBECTL} apply -f "https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml"
     echo "  Waiting for cert-manager to be ready..."
-    ${KUBECTL} wait --for=condition=Available deployment --all -n cert-manager --timeout=120s
+    ${KUBECTL} wait --for=condition=Available deployment --all -n cert-manager --timeout=300s
+
+    # --- ADDED: Webhook buffer to prevent OLM deadlock ---
+    echo "  Waiting for Cert-Manager webhook to stabilize in the API server..."
+    sleep 15
+    ${KUBECTL} wait --for=condition=Ready pod -l app.kubernetes.io/component=webhook -n cert-manager --timeout=120s
+    # -----------------------------------------------------
 fi
 
 if [ "$INSTALL_OLM" = true ]; then
     if command -v operator-sdk &>/dev/null; then
         echo "=== Installing OLM ==="
-        operator-sdk olm install 2>/dev/null || {
+        # --- ADDED: 5m timeout so it fails gracefully instead of hanging forever ---
+        operator-sdk olm install --timeout 5m 2>/dev/null || {
             echo "  OLM may already be installed or operator-sdk olm install failed."
             echo "  Continuing without OLM. Use 'make deploy' instead of 'make bundle-run'."
         }
