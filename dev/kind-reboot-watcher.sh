@@ -227,6 +227,19 @@ while true; do
                         log "$node: timeout waiting for FencingSucceeded, forcing restart..."
                     fi
                     ${CONTAINER_TOOL} restart "$node" >/dev/null 2>&1 || true
+
+                    # Wait for kubelet to start, which guarantees systemd has fully booted
+                    # and mounted /dev (preventing the watchdog device from being overwritten).
+                    elapsed=0
+                    while ! is_kubelet_running "$node"; do
+                        if [ "$elapsed" -ge 60 ]; then
+                            log "$node: timeout waiting for kubelet to start, proceeding with watchdog creation"
+                            break
+                        fi
+                        sleep 2
+                        elapsed=$((elapsed + 2))
+                    done
+
                     # Re-create the per-node null watchdog device (lost on container restart).
                     ${CONTAINER_TOOL} exec "$node" sh -c 'rm -f /dev/watchdog; mknod /dev/watchdog c 1 3' 2>/dev/null || true
                     log "$node: container restarted, waiting for kubelet to return."
